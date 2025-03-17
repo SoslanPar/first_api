@@ -99,4 +99,4 @@ def delete_todo(todo_id: int):
     raise HTTPException(status_code=404, detail='Todo not found')
 
 if __name__ == '__main__':
-    uvicorn.run('main:api')
+    uvicorn.run('main:api', reload=True)
