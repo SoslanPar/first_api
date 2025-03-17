@@ -2,6 +2,7 @@ from enum import IntEnum
 from typing import List, Optional
 
 from fastapi import FastAPI, HTTPException
+import uvicorn
 from pydantic import BaseModel, Field
 
 api = FastAPI()
@@ -97,3 +98,5 @@ def delete_todo(todo_id: int):
         
     raise HTTPException(status_code=404, detail='Todo not found')
 
+if __name__ == '__main__':
+    uvicorn.run('main:api')
