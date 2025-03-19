@@ -1,11 +1,30 @@
 from enum import IntEnum
-from typing import List, Optional
+from typing import List, Optional, Annotated, AnyStr
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 import uvicorn
 from pydantic import BaseModel, Field, EmailStr, ConfigDict
 
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy import select
+
 api = FastAPI()
+
+
+class Base(DeclarativeBase):
+    pass
+
+class TodoModel(Base):
+    __tablename__ = 'todos'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    todo_name: Mapped[str]
+    todo_description: Mapped[str]
+    priority: Mapped[int]
+    username: Mapped[str]
+    user_email: Mapped[str]
+
 
 class Priority(IntEnum):
     LOW = 3
@@ -20,7 +39,7 @@ class TodoBase(BaseModel):
     username: str = Field(..., min_length=2, max_length=64, description='Username')
     user_email: EmailStr = Field(..., description='User email')
 
-    model_config = ConfigDict(extra='forbid')
+    model_config = ConfigDict(extra='forbid') # Запрет на лишние поля
 
 
 class TodoCreate(TodoBase):
@@ -49,9 +68,54 @@ all_todos = [
 ]
 
 
+engine = create_async_engine('sqlite+aiosqlite:///todos.db')
+
+# with engine.connect() as conn:
+#     conn.execute('CREATE TABLE ToDos IF NOT EXIST')
+
+new_session = async_sessionmaker(engine, expire_on_commit=False)
+
+async def get_session():
+    async with new_session() as session:
+        yield session
+
+
+SessionDep = Annotated[AsyncSession, Depends(get_session)]
+
+
+@api.post('/setup_databes', tags=['Database'])
+async def setup_databese():
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+        await conn.run_sync(Base.metadata.create_all)
+    return {'ok': True}
+
+
+@api.post('/todo_db', tags=['Database'])
+async def add_todo_to_db(todo: Todo, session: SessionDep):
+    new_todo = TodoModel(
+        todo_name=todo.todo_name,
+        todo_description=todo.todo_description,
+        priority=todo.priority,
+        username=todo.username,
+        user_email=todo.user_email
+        )
+    session.add(new_todo)
+    await session.commit()
+    return {'ok': True}
+
+
+@api.get('/todo_db', tags=['Database'])
+async def get_todo_from_db(session: SessionDep):
+    query = select(TodoModel)
+    result = await session.execute(query)
+    return result.scalars().all()
+
+
 @api.get('/', tags = ['Hello'])
 def print_hello():
     return 'Hello'
+
 
 @api.get('/todos', tags=['To do'])
 def get_todos(first_n: int = None) -> List[Todo]:
