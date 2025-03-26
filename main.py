@@ -150,7 +150,7 @@ def update_todo(todo_id: int, updated_todo: TodoUpdate) -> Todo:
             if updated_todo.username is not None:
                 todo.username = updated_todo.username
                 
-            return todo
+            return todo    
         
     raise HTTPException(status_code=404, detail='Todo not found')
 
@@ -192,6 +192,14 @@ def iterfile(filename: str):
 @api.get('/file/streaming/{filename}', tags=['Files'])
 async def get_streaming_file(filename: str):
     return StreamingResponse(iterfile(filename), media_type='video/mp4') # загружает частями
+
+
+
+
+
+
+
+
 
 if __name__ == '__main__':
     uvicorn.run('main:api', reload=True)
